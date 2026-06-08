@@ -1,0 +1,82 @@
+/* A4 report styles — ThermoInspect Report */
+@page { size: A4 portrait; margin: 20mm 15mm; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  font-family: 'Noto Sans JP', 'Hiragino Sans', 'Meiryo', sans-serif;
+  font-size: 10pt;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+.page {
+  page-break-after: always;
+  min-height: 257mm;
+  max-width: 180mm;
+  padding: 0;
+  overflow: hidden;
+}
+
+.page:last-child { page-break-after: auto; }
+
+img {
+  max-width: 100%;
+  height: auto;
+  image-rendering: auto;
+}
+
+table, tr, td, th, .plan-card, .image-box {
+  page-break-inside: avoid;
+}
+
+h1 { font-size: 18pt; font-weight: 700; margin-bottom: 12px; }
+h2 { font-size: 14pt; font-weight: 700; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 4px; }
+h3 { font-size: 11pt; font-weight: 700; margin: 10px 0 6px; }
+
+.cover-title { text-align: center; margin-top: 40mm; }
+.cover-title .client { font-size: 16pt; margin-bottom: 8px; }
+.cover-title .report-name { font-size: 14pt; font-weight: 700; }
+.cover-image { width: 100%; max-height: 100mm; object-fit: cover; margin: 20px 0; border: 1px solid #ccc; }
+.cover-meta { margin-top: 20px; font-size: 10pt; }
+.cover-company { margin-top: 30mm; text-align: right; font-size: 9pt; color: #444; }
+
+table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+th, td { border: 1px solid #333; padding: 6px 8px; font-size: 9pt; vertical-align: top; }
+th { background: #e8e8e8; font-weight: 700; text-align: left; }
+
+.overview-grid { display: grid; grid-template-columns: 35% 65%; gap: 12px; }
+.overview-map { position: relative; width: 100%; }
+.overview-map img { width: 100%; max-height: 120mm; object-fit: contain; }
+.marker { position: absolute; border: 2px solid #e11; background: rgba(255,0,0,0.2); font-size: 8pt; color: #e11; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+.detail-grid { display: grid; grid-template-columns: 80px 1fr; gap: 8px; margin-top: 10px; }
+.compass { width: 60px; height: 60px; border: 1px solid #333; border-radius: 50%; position: relative; font-size: 8pt; font-weight: 700; }
+.compass .n { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); }
+.compass .s { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); }
+.compass .e { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.compass .w { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); }
+
+.image-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.image-box { position: relative; border: 1px solid #ccc; min-height: 60mm; }
+.image-box img { width: 100%; max-height: 70mm; object-fit: contain; display: block; }
+.image-label { font-size: 8pt; background: #f0f0f0; padding: 2px 6px; border-bottom: 1px solid #ccc; }
+
+.score-badge { display: inline-block; width: 48px; height: 48px; line-height: 48px; text-align: center; font-size: 24pt; font-weight: 700; border: 2px solid #333; border-radius: 4px; }
+.score-badge.sales { width: 64px; height: 64px; line-height: 64px; font-size: 32pt; border-color: #2563eb; color: #2563eb; }
+
+.plans-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+.plan-card { border: 1px solid #333; padding: 10px; font-size: 9pt; }
+.plan-card.recommended { border: 2px solid #2563eb; background: #eff6ff; }
+.plan-card .badge { font-size: 8pt; color: #2563eb; font-weight: 700; }
+
+.page-header { display: flex; justify-content: space-between; font-size: 8pt; color: #666; margin-bottom: 8px; }
+.summary-section { margin-bottom: 16px; }
+.summary-section p { margin-top: 4px; }
+
+.report-type-badge { font-size: 9pt; color: #666; text-align: right; margin-bottom: 8px; }

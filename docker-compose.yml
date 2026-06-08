@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: thermo-inspect-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: thermo
+      POSTGRES_PASSWORD: thermo
+      POSTGRES_DB: thermo_inspect
+    ports:
+      - '5432:5432'
+    volumes:
+      - thermo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U thermo -d thermo_inspect']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  thermo_pgdata:

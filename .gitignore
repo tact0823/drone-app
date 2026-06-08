@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+!.env.example
+!.env.production.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads / storage (Phase 3+)
+uploads/
+storage/
+
+# Test coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Temp
+pdf_list.txt
+pdf_paths.txt
+
+# Vercel generated at build (template: frontend/vercel.template.json)
+frontend/vercel.json

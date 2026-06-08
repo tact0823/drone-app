@@ -1,0 +1,17 @@
+# ThermoInspect Report — Backend API (Railway Docker)
+#
+# Railway Dashboard 設定:
+#   Root Directory: backend
+#   Config file:    backend/railway.toml（Root=backend の場合は railway.toml）
+#
+# デプロイ後: Settings → Networking → Generate Domain → BACKEND_URL として Vercel に設定
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
