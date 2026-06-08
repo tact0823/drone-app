@@ -9,6 +9,10 @@
     {
       "source": "/api/:path*",
       "destination": "__BACKEND_URL__/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
