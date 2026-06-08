@@ -1,3 +1,10 @@
+/**
+ * Optional: generate frontend/vercel.json from vercel.template.json with BACKEND_URL.
+ * Not used on Vercel deploy — frontend/vercel.json is committed directly for SPA rewrites.
+ *
+ * Usage (local only):
+ *   BACKEND_URL=https://your-backend.railway.app node scripts/prepare-vercel.mjs
+ */
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,8 +13,8 @@ const backendUrl = process.env.BACKEND_URL?.replace(/\/$/, '');
 
 if (!backendUrl) {
   console.error(
-    'BACKEND_URL is required for Vercel build.\n' +
-      'Set it in Vercel Dashboard → Settings → Environment Variables',
+    'BACKEND_URL is required.\n' +
+      'Example: BACKEND_URL=https://your-backend.railway.app node scripts/prepare-vercel.mjs',
   );
   process.exit(1);
 }

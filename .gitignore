@@ -41,6 +41,3 @@ coverage/
 # Temp
 pdf_list.txt
 pdf_paths.txt
-
-# Vercel generated at build (template: frontend/vercel.template.json)
-frontend/vercel.json
