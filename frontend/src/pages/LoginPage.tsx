@@ -7,6 +7,8 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const errorCode = searchParams.get('error');
   const errorReason = searchParams.get('reason');
+  const errorStep = searchParams.get('step');
+  const googleError = searchParams.get('google_error');
   const { user, loading } = useAuth();
 
   if (!loading && user) {
@@ -23,10 +25,12 @@ export function LoginPage() {
 
         <div className="mt-6">
           <SafariErrorAlert errorCode={errorCode} />
-          {errorCode === 'oauth_failed' && errorReason && (
-            <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              失敗ステップ: {errorReason}
-            </p>
+          {errorCode === 'oauth_failed' && (errorStep || errorReason || googleError) && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 space-y-1">
+              {errorStep && <p>失敗ステップ: {errorStep}</p>}
+              {errorReason && errorReason !== errorStep && <p>原因: {errorReason}</p>}
+              {googleError && <p>Google エラー: {googleError}</p>}
+            </div>
           )}
 
           <button

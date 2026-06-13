@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from './app.js';
-import { env } from './config/env.js';
+import { env, assertGoogleOAuthEnv } from './config/env.js';
 import { checkDbConnection, getDbConnectionError } from './db/pool.js';
 import { runMigrations } from './db/runMigrations.js';
 
@@ -43,6 +43,8 @@ async function waitForDbConnection(maxAttempts = 5, delayMs = 3000): Promise<boo
 }
 
 async function start() {
+  assertGoogleOAuthEnv();
+
   await mkdir(path.resolve(env.uploadsDir), { recursive: true });
   await mkdir(path.resolve(env.reportsDir), { recursive: true });
 

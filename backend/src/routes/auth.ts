@@ -5,15 +5,19 @@ import { oauthRateLimiter } from '../middleware/oauthRateLimit.js';
 import { recordAuditLog } from '../services/auditService.js';
 import {
   OAUTH_STATE_COOKIE,
+  classifyGoogleOAuthFailure,
   clearOAuthStateCookie,
   clearTokenCookie,
   createCsrfToken,
   createOAuthState,
   exchangeGoogleCodeWithSteps,
+  extractGoogleOAuthError,
   getGoogleAuthUrl,
+  getGoogleOAuthRedirectUri,
   logOAuthFailure,
   logOAuthStep,
   redirectToLogin,
+  sanitizeGoogleErrorForClient,
   setOAuthStateCookie,
   setTokenCookie,
   signToken,
@@ -33,7 +37,7 @@ authRouter.get('/google', oauthRateLimiter, (_req, res) => {
   const state = createOAuthState();
   setOAuthStateCookie(res, state);
   const authUrl = getGoogleAuthUrl(state);
-  logOAuthStep(`redirect google configured_callback=${env.googleCallbackUrl}`);
+  logOAuthStep(`redirect google redirect_uri=${getGoogleOAuthRedirectUri()}`);
   res.redirect(authUrl);
 });
 
@@ -52,15 +56,15 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
 
   if (!code || typeof code !== 'string') {
     logOAuthFailure('missing_code', new Error('authorization code missing'));
-    redirectToLogin(res, 'oauth_failed', 'missing_code');
+    redirectToLogin(res, 'oauth_failed', { reason: 'missing_code', step: 'missing_code' });
     return;
   }
   logOAuthStep('code received');
-  logOAuthStep(`callback configured_redirect_uri=${env.googleCallbackUrl}`);
+  logOAuthStep(`callback redirect_uri=${getGoogleOAuthRedirectUri()}`);
 
   if (!state || typeof state !== 'string' || state !== savedState) {
     logOAuthFailure('state_mismatch', new Error('oauth state mismatch'));
-    redirectToLogin(res, 'oauth_failed', 'state_mismatch');
+    redirectToLogin(res, 'oauth_failed', { reason: 'state_mismatch', step: 'state_mismatch' });
     return;
   }
 
@@ -68,8 +72,20 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
   try {
     profile = await exchangeGoogleCodeWithSteps(code, logOAuthStep);
   } catch (err) {
+    const { googleError, googleErrorDescription } = extractGoogleOAuthError(err);
+    const reason = classifyGoogleOAuthFailure(googleError, googleErrorDescription);
+    const publicGoogleError =
+      reason === 'redirect_uri_mismatch' ||
+      reason === 'invalid_client' ||
+      reason === 'invalid_grant'
+        ? reason
+        : sanitizeGoogleErrorForClient(googleError);
     logOAuthFailure('token_exchange', err);
-    redirectToLogin(res, 'oauth_failed', 'token_exchange');
+    redirectToLogin(res, 'oauth_failed', {
+      step: 'token_exchange',
+      reason,
+      googleError: publicGoogleError,
+    });
     return;
   }
 
@@ -79,7 +95,7 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
     logOAuthStep('user upsert success');
   } catch (err) {
     logOAuthFailure('user_upsert', err);
-    redirectToLogin(res, 'oauth_failed', 'user_upsert');
+    redirectToLogin(res, 'oauth_failed', { reason: 'user_upsert', step: 'user_upsert' });
     return;
   }
 
@@ -89,7 +105,7 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
     logOAuthStep('jwt created');
   } catch (err) {
     logOAuthFailure('jwt_create', err);
-    redirectToLogin(res, 'oauth_failed', 'jwt_create');
+    redirectToLogin(res, 'oauth_failed', { reason: 'jwt_create', step: 'jwt_create' });
     return;
   }
 

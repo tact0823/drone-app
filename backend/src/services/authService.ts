@@ -19,30 +19,33 @@ function getOAuthClient(): OAuth2Client {
     if (!env.googleClientId || !env.googleClientSecret || !env.googleCallbackUrl) {
       throw new Error('Google OAuth is not configured');
     }
-    oauthClient = new OAuth2Client(
-      env.googleClientId,
-      env.googleClientSecret,
-      env.googleCallbackUrl,
-    );
+    oauthClient = new OAuth2Client({
+      clientId: env.googleClientId,
+      clientSecret: env.googleClientSecret,
+      redirectUri: env.googleCallbackUrl,
+    });
   }
   return oauthClient;
 }
 
+export function getGoogleOAuthRedirectUri(): string {
+  return env.googleCallbackUrl;
+}
+
 export function getGoogleAuthUrl(state: string): string {
+  const redirectUri = getGoogleOAuthRedirectUri();
   const authUrl = getOAuthClient().generateAuthUrl({
     access_type: 'online',
     scope: ['openid', 'email', 'profile'],
     state,
     prompt: 'select_account',
+    redirect_uri: redirectUri,
   });
-  const redirectUri = extractRedirectUriFromAuthUrl(authUrl);
-  logOAuthStep(`authorization redirect_uri=${redirectUri ?? env.googleCallbackUrl}`);
-  if (redirectUri && redirectUri !== env.googleCallbackUrl) {
-    logOAuthFailure(
-      'authorization_redirect_uri_mismatch',
-      new Error(`authorization=${redirectUri} configured=${env.googleCallbackUrl}`),
-    );
+  const authRedirectUri = extractRedirectUriFromAuthUrl(authUrl);
+  if (authRedirectUri !== redirectUri) {
+    throw new Error('OAuth authorization redirect_uri mismatch');
   }
+  logOAuthStep(`authorization redirect_uri=${redirectUri}`);
   return authUrl;
 }
 
@@ -181,7 +184,7 @@ export function getConfiguredGoogleCallbackUrl(): string {
   return env.googleCallbackUrl;
 }
 
-function extractGoogleOAuthError(err: unknown): {
+export function extractGoogleOAuthError(err: unknown): {
   message: string;
   googleError?: string;
   googleErrorDescription?: string;
@@ -195,9 +198,47 @@ function extractGoogleOAuthError(err: unknown): {
   };
 }
 
+export type GoogleOAuthFailureReason =
+  | 'invalid_client'
+  | 'invalid_grant'
+  | 'redirect_uri_mismatch'
+  | 'token_exchange';
+
+const PUBLIC_GOOGLE_ERRORS = new Set([
+  'invalid_client',
+  'invalid_grant',
+  'redirect_uri_mismatch',
+  'unknown',
+]);
+
+export function classifyGoogleOAuthFailure(
+  googleError?: string,
+  googleErrorDescription?: string,
+): GoogleOAuthFailureReason {
+  const error = (googleError ?? '').toLowerCase();
+  const description = (googleErrorDescription ?? '').toLowerCase();
+
+  if (error === 'invalid_client') return 'invalid_client';
+  if (error === 'redirect_uri_mismatch') return 'redirect_uri_mismatch';
+  if (description.includes('redirect_uri')) return 'redirect_uri_mismatch';
+  if (error === 'invalid_grant') return 'invalid_grant';
+  return 'token_exchange';
+}
+
+export function sanitizeGoogleErrorForClient(googleError?: string): string {
+  const normalized = (googleError ?? 'unknown').toLowerCase();
+  if (PUBLIC_GOOGLE_ERRORS.has(normalized)) {
+    return normalized;
+  }
+  if (normalized === 'invalid_client' || normalized === 'invalid_grant') {
+    return normalized;
+  }
+  return 'unknown';
+}
+
 async function exchangeCodeForTokens(code: string) {
   const client = getOAuthClient();
-  const redirectUri = env.googleCallbackUrl;
+  const redirectUri = getGoogleOAuthRedirectUri();
   logOAuthStep(`token exchange redirect_uri=${redirectUri}`);
   return client.getToken({
     code,
@@ -248,10 +289,26 @@ export async function exchangeGoogleCodeWithSteps(
   return profile;
 }
 
-export function redirectToLogin(res: Response, errorCode: string, reason?: string): void {
+export interface OAuthLoginRedirectOptions {
+  reason?: string;
+  step?: string;
+  googleError?: string;
+}
+
+export function redirectToLogin(
+  res: Response,
+  errorCode: string,
+  options?: OAuthLoginRedirectOptions,
+): void {
   const params = new URLSearchParams({ error: errorCode });
-  if (reason) {
-    params.set('reason', reason);
+  if (options?.reason) {
+    params.set('reason', options.reason);
+  }
+  if (options?.step) {
+    params.set('step', options.step);
+  }
+  if (options?.googleError) {
+    params.set('google_error', sanitizeGoogleErrorForClient(options.googleError));
   }
   res.redirect(`${env.frontendUrl}/login?${params.toString()}`);
 }

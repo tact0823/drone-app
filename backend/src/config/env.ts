@@ -61,13 +61,56 @@ function trimEnv(value: string | undefined): string {
   return (value ?? '').trim();
 }
 
-function resolveGoogleCallbackUrl(frontendUrl: string): string {
+/** Railway backend callback only (production). Localhost allowed in development/test. */
+const RAILWAY_GOOGLE_CALLBACK_PATTERN =
+  /^https:\/\/[a-z0-9-]+\.up\.railway\.app\/api\/v1\/auth\/google\/callback$/;
+const LOCAL_GOOGLE_CALLBACK_PATTERN =
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/api\/v1\/auth\/google\/callback$/;
+
+function resolveGoogleCallbackUrl(): string {
   const explicit = trimEnv(process.env.GOOGLE_CALLBACK_URL);
-  if (explicit) return explicit;
-  return `${frontendUrl}/api/v1/auth/google/callback`;
+  if (!explicit) {
+    throw new Error('GOOGLE_CALLBACK_URL is required');
+  }
+  return explicit;
+}
+
+export function validateGoogleCallbackUrl(callbackUrl: string): void {
+  if (RAILWAY_GOOGLE_CALLBACK_PATTERN.test(callbackUrl)) {
+    return;
+  }
+  if (nodeEnv === 'development' || nodeEnv === 'test') {
+    if (LOCAL_GOOGLE_CALLBACK_PATTERN.test(callbackUrl)) {
+      return;
+    }
+  }
+  throw new Error(
+    'GOOGLE_CALLBACK_URL must be https://<service>.up.railway.app/api/v1/auth/google/callback',
+  );
+}
+
+export function assertGoogleOAuthEnv(): void {
+  if (!env.googleCallbackUrl) {
+    console.error('GOOGLE_CALLBACK_URL is required');
+    process.exit(1);
+  }
+
+  try {
+    validateGoogleCallbackUrl(env.googleCallbackUrl);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    console.error(`GOOGLE_CALLBACK_URL: ${env.googleCallbackUrl}`);
+    process.exit(1);
+  }
+
+  if (!env.googleClientId || !env.googleClientSecret) {
+    console.error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required');
+    process.exit(1);
+  }
 }
 
 const frontendUrl = resolveFrontendUrl();
+const googleCallbackUrl = resolveGoogleCallbackUrl();
 
 export const env = {
   nodeEnv,
@@ -78,7 +121,7 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
   googleClientId: trimEnv(process.env.GOOGLE_CLIENT_ID),
   googleClientSecret: trimEnv(process.env.GOOGLE_CLIENT_SECRET),
-  googleCallbackUrl: resolveGoogleCallbackUrl(frontendUrl),
+  googleCallbackUrl,
   cookieSameSite: parseSameSite(process.env.COOKIE_SAME_SITE),
   isProduction: nodeEnv === 'production',
   uploadsDir: process.env.UPLOADS_DIR ?? 'uploads',

@@ -32,7 +32,7 @@ describe('Google OAuth configuration', () => {
     assert.equal(isGoogleOAuthConfigured(), true);
   });
 
-  it('derives callback URL from FRONTEND_URL', () => {
+  it('uses GOOGLE_CALLBACK_URL from environment', () => {
     assert.equal(
       env.googleCallbackUrl,
       'http://localhost:5173/api/v1/auth/google/callback',
