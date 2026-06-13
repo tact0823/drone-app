@@ -79,7 +79,7 @@ describe('Auth routes', () => {
     });
   });
 
-  it('POST /auth/login rejects wrong credentials', async () => {
+  it('POST /auth/login rejects wrong credentials with reason', async () => {
     await withServer(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
         method: 'POST',
@@ -90,6 +90,10 @@ describe('Auth routes', () => {
         }),
       });
       assert.equal(response.status, 401);
+      const body = (await response.json()) as { error: { code: string; reason: string; message: string } };
+      assert.equal(body.error.code, 'UNAUTHORIZED');
+      assert.ok(body.error.reason);
+      assert.ok(body.error.message.length > 0);
     });
   });
 

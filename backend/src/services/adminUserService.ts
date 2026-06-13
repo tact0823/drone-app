@@ -15,6 +15,20 @@ interface UserAuthRow {
   updated_at: Date;
 }
 
+export type EmailLoginFailureReason =
+  | 'database_unavailable'
+  | 'user_not_found'
+  | 'no_password_hash'
+  | 'password_mismatch'
+  | 'db_error';
+
+export interface EmailLoginAttemptResult {
+  user: User | null;
+  userFound: boolean;
+  passwordMatch: boolean | null;
+  failureReason?: EmailLoginFailureReason;
+}
+
 function mapUser(row: UserAuthRow): User {
   return {
     id: row.id,
@@ -31,9 +45,14 @@ function mapUser(row: UserAuthRow): User {
 export async function authenticateWithEmailPassword(
   email: string,
   password: string,
-): Promise<User | null> {
+): Promise<EmailLoginAttemptResult> {
   if (!env.databaseUrl) {
-    return null;
+    return {
+      user: null,
+      userFound: false,
+      passwordMatch: null,
+      failureReason: 'database_unavailable',
+    };
   }
 
   try {
@@ -42,19 +61,47 @@ export async function authenticateWithEmailPassword(
       [email.trim().toLowerCase()],
     );
     const row = result.rows[0];
-    if (!row?.password_hash) {
-      return null;
+    if (!row) {
+      return {
+        user: null,
+        userFound: false,
+        passwordMatch: null,
+        failureReason: 'user_not_found',
+      };
+    }
+
+    if (!row.password_hash) {
+      return {
+        user: null,
+        userFound: true,
+        passwordMatch: null,
+        failureReason: 'no_password_hash',
+      };
     }
 
     const valid = await verifyPassword(password, row.password_hash);
     if (!valid) {
-      return null;
+      return {
+        user: null,
+        userFound: true,
+        passwordMatch: false,
+        failureReason: 'password_mismatch',
+      };
     }
 
-    return mapUser(row);
+    return {
+      user: mapUser(row),
+      userFound: true,
+      passwordMatch: true,
+    };
   } catch (error) {
     console.error('Email login authentication failed:', error);
-    return null;
+    return {
+      user: null,
+      userFound: false,
+      passwordMatch: null,
+      failureReason: 'db_error',
+    };
   }
 }
 
@@ -81,4 +128,21 @@ export async function ensureAdminUser(): Promise<void> {
   );
 
   console.log(`Admin user ensured for ${email}`);
+}
+
+export function loginFailureMessage(reason?: EmailLoginFailureReason): string {
+  switch (reason) {
+    case 'password_mismatch':
+      return 'パスワードが一致しません。Railway の ADMIN_PASSWORD と入力値を確認してください。';
+    case 'user_not_found':
+      return '指定されたメールアドレスのユーザーが見つかりません。';
+    case 'no_password_hash':
+      return 'このアカウントはメールログインが有効化されていません。';
+    case 'database_unavailable':
+      return 'データベースに接続できません。';
+    case 'db_error':
+      return '認証処理中にデータベースエラーが発生しました。';
+    default:
+      return 'メールアドレスまたはパスワードが正しくありません。';
+  }
 }

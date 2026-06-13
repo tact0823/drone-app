@@ -15,11 +15,18 @@ export interface MeResponse {
 
 export class ApiError extends Error {
   code: string;
+  reason?: string;
   details?: Array<{ field: string; message: string }>;
 
-  constructor(code: string, message: string, details?: Array<{ field: string; message: string }>) {
+  constructor(
+    code: string,
+    message: string,
+    details?: Array<{ field: string; message: string }>,
+    reason?: string,
+  ) {
     super(message);
     this.code = code;
+    this.reason = reason;
     this.details = details;
   }
 }
@@ -81,9 +88,10 @@ export async function fetchApi<T>(path: string, options: RequestInit = {}): Prom
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const code = data?.error?.code ?? 'UNKNOWN';
-    const message = data?.error?.message ?? 'Request failed';
-    throw new ApiError(code, message, data?.error?.details);
+    const code = data?.error?.code ?? 'HTTP_ERROR';
+    const message =
+      data?.error?.message ?? `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    throw new ApiError(code, message, data?.error?.details, data?.error?.reason);
   }
 
   return data as T;

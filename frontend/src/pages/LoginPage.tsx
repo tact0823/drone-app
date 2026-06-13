@@ -2,7 +2,8 @@ import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { SafariErrorAlert } from '../components/SafariErrorAlert';
 import { useAuth } from '../hooks/useAuth';
-import { ApiError, loginWithEmail } from '../lib/api';
+import { loginWithEmail } from '../lib/api';
+import { formatUnknownError } from '../lib/formatApiError';
 import { isValidEmail } from '../lib/emailValidation';
 
 export function LoginPage() {
@@ -12,7 +13,7 @@ export function LoginPage() {
   const errorReason = searchParams.get('reason');
   const errorStep = searchParams.get('step');
   const googleError = searchParams.get('google_error');
-  const { user, loading, refresh } = useAuth();
+  const { user, loading, setSession } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,15 +37,11 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      await loginWithEmail(trimmedEmail, password);
-      await refresh();
+      const session = await loginWithEmail(trimmedEmail, password);
+      setSession(session);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        setFormError(err.message);
-      } else {
-        setFormError('ログインに失敗しました。しばらくしてから再度お試しください。');
-      }
+      setFormError(formatUnknownError(err));
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +67,7 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {formError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 whitespace-pre-line">
                 {formError}
               </div>
             )}

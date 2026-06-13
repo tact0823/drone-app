@@ -3,7 +3,8 @@ import { authenticate } from '../middleware/authenticate.js';
 import { validateCsrf } from '../middleware/csrf.js';
 import { loginRateLimiter } from '../middleware/loginRateLimit.js';
 import { oauthRateLimiter } from '../middleware/oauthRateLimit.js';
-import { authenticateWithEmailPassword } from '../services/adminUserService.js';
+import { authenticateWithEmailPassword, loginFailureMessage } from '../services/adminUserService.js';
+import { logAuth, maskEmailForLog } from '../services/emailAuthLog.js';
 import { validateLoginInput } from '../validators/authLogin.js';
 import { recordAuditLog } from '../services/auditService.js';
 import {
@@ -34,61 +35,81 @@ export const authRouter = Router();
 authRouter.post('/login', loginRateLimiter, async (req, res) => {
   const validated = validateLoginInput(req.body);
   if ('code' in validated) {
+    logAuth('login failed reason=validation_error');
     res.status(400).json({
       error: {
         code: validated.code,
         message: validated.message,
+        reason: 'validation_error',
         details: validated.details,
       },
     });
     return;
   }
 
-  const user = await authenticateWithEmailPassword(validated.email, validated.password);
-  if (!user) {
+  logAuth(`login attempt email=${maskEmailForLog(validated.email)}`);
+  const attempt = await authenticateWithEmailPassword(validated.email, validated.password);
+  logAuth(`admin user found=${attempt.userFound}`);
+  if (attempt.passwordMatch !== null) {
+    logAuth(`password match=${attempt.passwordMatch}`);
+  }
+
+  if (!attempt.user) {
+    logAuth(`login failed reason=${attempt.failureReason ?? 'unknown'}`);
     try {
       await recordAuditLog(req, {
         action: 'auth.login_failed',
         resourceType: 'user',
-        details: { email: validated.email },
+        details: { email: validated.email, reason: attempt.failureReason },
       });
     } catch (err) {
       logOAuthFailure('audit_log', err);
     }
     res.status(401).json({
-      error: { code: 'UNAUTHORIZED', message: 'Invalid email or password' },
+      error: {
+        code: 'UNAUTHORIZED',
+        message: loginFailureMessage(attempt.failureReason),
+        reason: attempt.failureReason ?? 'unknown',
+      },
     });
     return;
   }
 
   let token;
   try {
-    token = signToken(user);
+    token = signToken(attempt.user);
   } catch (err) {
     logOAuthFailure('jwt_create', err);
+    logAuth('login failed reason=jwt_create');
     res.status(500).json({
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to create session' },
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to create session',
+        reason: 'jwt_create',
+      },
     });
     return;
   }
 
   setTokenCookie(res, token);
+  logAuth('cookie set');
 
   try {
     await recordAuditLog(req, {
-      userId: user.id,
+      userId: attempt.user.id,
       action: 'auth.login',
       resourceType: 'user',
-      resourceId: user.id,
+      resourceId: attempt.user.id,
       details: { method: 'email' },
     });
   } catch (err) {
     logOAuthFailure('audit_log', err);
   }
 
+  logAuth('login success');
   res.json({
-    user: toPublicUser(user),
-    csrfToken: createCsrfToken(user.id),
+    user: toPublicUser(attempt.user),
+    csrfToken: createCsrfToken(attempt.user.id),
   });
 });
 

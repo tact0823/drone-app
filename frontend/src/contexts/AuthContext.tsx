@@ -7,13 +7,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { ApiError, getMe, logout as apiLogout, type User } from '../lib/api';
+import { ApiError, getMe, logout as apiLogout, type MeResponse, type User } from '../lib/api';
 
 interface AuthContextValue {
   user: User | null;
   csrfToken: string | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  setSession: (data: MeResponse) => void;
   logout: () => Promise<void>;
 }
 
@@ -23,6 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const setSession = useCallback((data: MeResponse) => {
+    setUser(data.user);
+    setCsrfToken(data.csrfToken);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -54,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [csrfToken]);
 
   const value = useMemo(
-    () => ({ user, csrfToken, loading, refresh, logout }),
-    [user, csrfToken, loading, refresh, logout],
+    () => ({ user, csrfToken, loading, refresh, setSession, logout }),
+    [user, csrfToken, loading, refresh, setSession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
