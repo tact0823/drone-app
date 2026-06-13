@@ -29,12 +29,21 @@ function getOAuthClient(): OAuth2Client {
 }
 
 export function getGoogleAuthUrl(state: string): string {
-  return getOAuthClient().generateAuthUrl({
+  const authUrl = getOAuthClient().generateAuthUrl({
     access_type: 'online',
     scope: ['openid', 'email', 'profile'],
     state,
     prompt: 'select_account',
   });
+  const redirectUri = extractRedirectUriFromAuthUrl(authUrl);
+  logOAuthStep(`authorization redirect_uri=${redirectUri ?? env.googleCallbackUrl}`);
+  if (redirectUri && redirectUri !== env.googleCallbackUrl) {
+    logOAuthFailure(
+      'authorization_redirect_uri_mismatch',
+      new Error(`authorization=${redirectUri} configured=${env.googleCallbackUrl}`),
+    );
+  }
+  return authUrl;
 }
 
 export function createOAuthState(): string {
@@ -142,14 +151,58 @@ export function verifyCsrfToken(userId: string, token: string): boolean {
   }
 }
 
-export async function exchangeGoogleCode(code: string) {
-  const client = getOAuthClient();
-  const { tokens } = await client.getToken(code);
-  if (!tokens.id_token) {
-    throw new Error('Missing id_token from Google');
-  }
+function sanitizeOAuthLogMessage(message: string): string {
+  return message
+    .replace(/Bearer\s+\S+/gi, '[redacted]')
+    .replace(/GOCSPX-\S+/gi, '[redacted]')
+    .replace(/ya29\.[A-Za-z0-9._-]+/gi, '[redacted]')
+    .replace(/access_token[=:]\S+/gi, 'access_token=[redacted]')
+    .replace(/refresh_token[=:]\S+/gi, 'refresh_token=[redacted]');
+}
 
-  return fetchGoogleProfile(client, tokens.id_token);
+interface GoogleOAuthApiError {
+  response?: {
+    data?: {
+      error?: string;
+      error_description?: string;
+    };
+  };
+}
+
+export function extractRedirectUriFromAuthUrl(authUrl: string): string | null {
+  try {
+    return new URL(authUrl).searchParams.get('redirect_uri');
+  } catch {
+    return null;
+  }
+}
+
+export function getConfiguredGoogleCallbackUrl(): string {
+  return env.googleCallbackUrl;
+}
+
+function extractGoogleOAuthError(err: unknown): {
+  message: string;
+  googleError?: string;
+  googleErrorDescription?: string;
+} {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  const apiError = err as GoogleOAuthApiError;
+  return {
+    message,
+    googleError: apiError.response?.data?.error,
+    googleErrorDescription: apiError.response?.data?.error_description,
+  };
+}
+
+async function exchangeCodeForTokens(code: string) {
+  const client = getOAuthClient();
+  const redirectUri = env.googleCallbackUrl;
+  logOAuthStep(`token exchange redirect_uri=${redirectUri}`);
+  return client.getToken({
+    code,
+    redirect_uri: redirectUri,
+  });
 }
 
 export async function fetchGoogleProfile(client: OAuth2Client, idToken: string) {
@@ -170,12 +223,22 @@ export async function fetchGoogleProfile(client: OAuth2Client, idToken: string) 
   };
 }
 
+export async function exchangeGoogleCode(code: string) {
+  const client = getOAuthClient();
+  const { tokens } = await exchangeCodeForTokens(code);
+  if (!tokens.id_token) {
+    throw new Error('Missing id_token from Google');
+  }
+
+  return fetchGoogleProfile(client, tokens.id_token);
+}
+
 export async function exchangeGoogleCodeWithSteps(
   code: string,
   onStep: (step: string) => void,
 ) {
   const client = getOAuthClient();
-  const { tokens } = await client.getToken(code);
+  const { tokens } = await exchangeCodeForTokens(code);
   onStep('token exchange success');
   if (!tokens.id_token) {
     throw new Error('Missing id_token from Google');
@@ -198,12 +261,16 @@ export function logOAuthStep(step: string): void {
 }
 
 export function logOAuthFailure(step: string, err: unknown): void {
-  const message = err instanceof Error ? err.message : 'unknown error';
-  const safeMessage = message
-    .replace(/Bearer\s+\S+/gi, '[redacted]')
-    .replace(/GOCSPX-\S+/gi, '[redacted]')
-    .replace(/ya29\.[A-Za-z0-9._-]+/gi, '[redacted]');
-  console.error(`[auth] ${step} failed: ${safeMessage}`);
+  const { message, googleError, googleErrorDescription } = extractGoogleOAuthError(err);
+  const safeMessage = sanitizeOAuthLogMessage(message);
+  const parts = [`[auth] ${step} failed: ${safeMessage}`];
+  if (googleError) {
+    parts.push(`google_error=${googleError}`);
+  }
+  if (googleErrorDescription) {
+    parts.push(`google_error_description=${sanitizeOAuthLogMessage(googleErrorDescription)}`);
+  }
+  console.error(parts.join(' '));
 }
 
 export { OAUTH_STATE_COOKIE, TOKEN_COOKIE };

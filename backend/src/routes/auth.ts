@@ -32,8 +32,9 @@ authRouter.get('/google', oauthRateLimiter, (_req, res) => {
 
   const state = createOAuthState();
   setOAuthStateCookie(res, state);
-  logOAuthStep('redirect google');
-  res.redirect(getGoogleAuthUrl(state));
+  const authUrl = getGoogleAuthUrl(state);
+  logOAuthStep(`redirect google configured_callback=${env.googleCallbackUrl}`);
+  res.redirect(authUrl);
 });
 
 authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
@@ -55,6 +56,7 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
     return;
   }
   logOAuthStep('code received');
+  logOAuthStep(`callback configured_redirect_uri=${env.googleCallbackUrl}`);
 
   if (!state || typeof state !== 'string' || state !== savedState) {
     logOAuthFailure('state_mismatch', new Error('oauth state mismatch'));

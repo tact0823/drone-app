@@ -14,7 +14,9 @@ for (const key of [
   'LLM_MODEL',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_CALLBACK_URL',
   'DATABASE_URL',
+  'JWT_SECRET',
 ] as const) {
   if (process.env[key] === '') {
     delete process.env[key];
@@ -55,8 +57,12 @@ function resolveFrontendUrl(): string {
   return (process.env.FRONTEND_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 }
 
+function trimEnv(value: string | undefined): string {
+  return (value ?? '').trim();
+}
+
 function resolveGoogleCallbackUrl(frontendUrl: string): string {
-  const explicit = process.env.GOOGLE_CALLBACK_URL?.trim();
+  const explicit = trimEnv(process.env.GOOGLE_CALLBACK_URL);
   if (explicit) return explicit;
   return `${frontendUrl}/api/v1/auth/google/callback`;
 }
@@ -67,11 +73,11 @@ export const env = {
   nodeEnv,
   port: Number(process.env.PORT ?? 3000),
   frontendUrl,
-  databaseUrl: process.env.DATABASE_URL ?? '',
-  jwtSecret: process.env.JWT_SECRET ?? '',
+  databaseUrl: trimEnv(process.env.DATABASE_URL),
+  jwtSecret: trimEnv(process.env.JWT_SECRET),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
-  googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
-  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+  googleClientId: trimEnv(process.env.GOOGLE_CLIENT_ID),
+  googleClientSecret: trimEnv(process.env.GOOGLE_CLIENT_SECRET),
   googleCallbackUrl: resolveGoogleCallbackUrl(frontendUrl),
   cookieSameSite: parseSameSite(process.env.COOKIE_SAME_SITE),
   isProduction: nodeEnv === 'production',
@@ -89,5 +95,5 @@ export const env = {
 } as const;
 
 export function isGoogleOAuthConfigured(): boolean {
-  return Boolean(env.googleClientId && env.googleClientSecret);
+  return Boolean(env.googleClientId && env.googleClientSecret && env.googleCallbackUrl);
 }
