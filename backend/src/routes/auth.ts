@@ -9,7 +9,7 @@ import {
   clearTokenCookie,
   createCsrfToken,
   createOAuthState,
-  exchangeGoogleCode,
+  exchangeGoogleCodeWithSteps,
   getGoogleAuthUrl,
   logOAuthFailure,
   logOAuthStep,
@@ -32,6 +32,7 @@ authRouter.get('/google', oauthRateLimiter, (_req, res) => {
 
   const state = createOAuthState();
   setOAuthStateCookie(res, state);
+  logOAuthStep('redirect google');
   res.redirect(getGoogleAuthUrl(state));
 });
 
@@ -49,23 +50,21 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
   clearOAuthStateCookie(res);
 
   if (!code || typeof code !== 'string') {
-    logOAuthStep('authorization code missing');
+    logOAuthFailure('missing_code', new Error('authorization code missing'));
     redirectToLogin(res, 'oauth_failed', 'missing_code');
     return;
   }
-  logOAuthStep('authorization code exists');
+  logOAuthStep('code received');
 
   if (!state || typeof state !== 'string' || state !== savedState) {
-    logOAuthStep('state mismatch');
-    redirectToLogin(res, 'state_mismatch', 'state_mismatch');
+    logOAuthFailure('state_mismatch', new Error('oauth state mismatch'));
+    redirectToLogin(res, 'oauth_failed', 'state_mismatch');
     return;
   }
 
   let profile;
   try {
-    profile = await exchangeGoogleCode(code);
-    logOAuthStep('token exchange success');
-    logOAuthStep('google profile success');
+    profile = await exchangeGoogleCodeWithSteps(code, logOAuthStep);
   } catch (err) {
     logOAuthFailure('token_exchange', err);
     redirectToLogin(res, 'oauth_failed', 'token_exchange');
@@ -85,7 +84,7 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
   let token;
   try {
     token = signToken(user);
-    logOAuthStep('jwt created success');
+    logOAuthStep('jwt created');
   } catch (err) {
     logOAuthFailure('jwt_create', err);
     redirectToLogin(res, 'oauth_failed', 'jwt_create');
@@ -93,7 +92,7 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
   }
 
   setTokenCookie(res, token);
-  logOAuthStep('cookie set success');
+  logOAuthStep('cookie set');
 
   try {
     await recordAuditLog(req, {
@@ -106,8 +105,8 @@ authRouter.get('/google/callback', oauthRateLimiter, async (req, res) => {
     logOAuthFailure('audit_log', err);
   }
 
-  logOAuthStep('redirect success');
-  res.redirect(`${env.frontendUrl}/dashboard`);
+  logOAuthStep('redirect auth callback');
+  res.redirect(`${env.frontendUrl}/auth/callback`);
 });
 
 authRouter.post('/logout', authenticate, validateCsrf, async (req, res) => {

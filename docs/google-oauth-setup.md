@@ -48,17 +48,15 @@
 | 環境 | URI |
 |------|-----|
 | ローカル開発 | `http://localhost:5173` |
-| 本番（Vercel） | `https://<your-vercel-domain>` |
-
-例: `https://thermo-inspect.vercel.app`
+| 本番（Vercel） | `https://drone-app-gamma.vercel.app` |
 
 ### 承認済みリダイレクト URI
 
 | 環境 | URI |
 |------|-----|
-| ローカル開発（Vite プロキシ経由・**推奨**） | `http://localhost:5173/api/v1/auth/google/callback` |
-| 本番（Vercel `/api` プロキシ経由・**推奨**） | `https://<your-vercel-domain>/api/v1/auth/google/callback` |
-| ローカル（バックエンド直叩き・任意） | `http://localhost:3000/api/v1/auth/google/callback` |
+| ローカル開発（Vite プロキシ経由） | `http://localhost:5173/api/v1/auth/google/callback` |
+| 本番（Railway 直結・**現行構成**） | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
+| 本番（Vercel プロキシ経由・任意） | `https://drone-app-gamma.vercel.app/api/v1/auth/google/callback` |
 
 > **重要:** Google に登録する URI と、`.env` の `GOOGLE_CALLBACK_URL`（または `FRONTEND_URL` から自動生成される値）が **完全一致** している必要があります。
 
@@ -93,24 +91,27 @@ GOOGLE_CLIENT_SECRET=<Client Secret>
 DATABASE_URL=<PostgreSQL 接続文字列>
 ```
 
-### 本番（バックエンド: Railway / Render 等）
+### 本番（バックエンド: Railway）
 
 ```env
 NODE_ENV=production
-FRONTEND_URL=https://your-app.vercel.app
-GOOGLE_CALLBACK_URL=https://your-app.vercel.app/api/v1/auth/google/callback
-COOKIE_SAME_SITE=lax
-JWT_SECRET=<本番用ランダム文字列>
-GOOGLE_CLIENT_ID=<Client ID>
-GOOGLE_CLIENT_SECRET=<Client Secret>
-DATABASE_URL=<本番 PostgreSQL>
+FRONTEND_URL=https://drone-app-gamma.vercel.app
+GOOGLE_CALLBACK_URL=https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback
+COOKIE_SAME_SITE=none
+JWT_SECRET=<.env と同じ>
+GOOGLE_CLIENT_ID=890322517305-aou15age95rsgs4jeil7k194gmd7ee99.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=<.env と同じ — 再発行した場合は最新値>
+DATABASE_URL=${{Postgres.DATABASE_URL}}
 ```
+
+一括設定手順: [`railway-env.md`](railway-env.md)
 
 ### Vercel（フロントのみ）
 
 | 変数 | 値 |
 |------|-----|
-| `BACKEND_URL` | バックエンド URL（例 `https://thermo-api.railway.app`、末尾スラッシュなし） |
+| `VITE_API_BASE_URL` | `https://drone-app-production-54a7.up.railway.app` |
+| `BACKEND_URL` | `https://drone-app-production-54a7.up.railway.app` |
 
 ---
 

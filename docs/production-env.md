@@ -13,7 +13,7 @@
 |---------------|-------------|------|
 | フロントエンド | **Vercel** | Vite SPA + `/api` リバースプロキシ |
 | バックエンド API | **Railway / Render / Fly.io** | Puppeteer + ファイルストレージ |
-| PostgreSQL | **Supabase** | マネージド DB + SSL |
+| PostgreSQL | **Railway PostgreSQL** | 同一プロジェクト内 Private 接続 |
 
 Vercel の `/api/*` をバックエンドへプロキシすることで **Cookie 同一オリジン** を維持できます。
 
@@ -37,7 +37,7 @@ Vercel の `/api/*` をバックエンドへプロキシすることで **Cookie
 |------|------|------|--------|
 | `NODE_ENV` | ✅ | `production` | `production` |
 | `PORT` | — | ホストが注入 | `3000` |
-| `FRONTEND_URL` | ✅ | CORS / OAuth リダイレクト先 | `https://YOUR_VERCEL_APP.vercel.app` |
+| `FRONTEND_URL` | ✅ | CORS / OAuth リダイレクト先 | `https://drone-app-gamma.vercel.app` |
 
 ### 認証
 
@@ -45,22 +45,40 @@ Vercel の `/api/*` をバックエンドへプロキシすることで **Cookie
 |------|------|------|
 | `JWT_SECRET` | ✅ | 32 文字以上のランダム文字列（ローカルと別値） |
 | `JWT_EXPIRES_IN` | — | デフォルト `24h` |
-| `GOOGLE_CLIENT_ID` | ✅ | Google Cloud OAuth クライアント ID |
-| `GOOGLE_CLIENT_SECRET` | ✅ | OAuth シークレット |
-| `GOOGLE_CALLBACK_URL` | ✅ | `https://YOUR_VERCEL_APP.vercel.app/api/v1/auth/google/callback` |
+| `GOOGLE_CLIENT_ID` | ✅ | `890322517305-aou15age95rsgs4jeil7k194gmd7ee99.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | ✅ | ローカル `.env` と同じ（Railway Variables にも設定） |
+| `GOOGLE_CALLBACK_URL` | ✅ | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
 | `COOKIE_SAME_SITE` | ✅ | Vercel プロキシ構成: `lax` |
 
-### Supabase DATABASE_URL
+### Railway PostgreSQL `DATABASE_URL`
 
 | 変数 | 必須 | 説明 |
 |------|------|------|
-| `DATABASE_URL` | ✅ | Supabase **Direct connection**（ポート 5432） |
+| `DATABASE_URL` | ✅ | Railway Postgres 接続文字列 |
+
+**Railway 上の API サービス（推奨）**
 
 ```
-postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require
+${{Postgres.DATABASE_URL}}
 ```
 
-> Pooler（6543）より Direct（5432）を推奨。
+または Private URL:
+
+```
+postgresql://postgres:[PASSWORD]@postgres.railway.internal:5432/railway
+```
+
+> `postgres.railway.internal` は **Railway プロジェクト内からのみ** 接続可能。SSL 不要。
+
+**ローカル開発 / migrate / prod:verify**
+
+Postgres サービス → **Connect → Public Network** の URL を使用:
+
+```
+postgresql://postgres:[PASSWORD]@[HOST].rlwy.net:[PORT]/railway
+```
+
+> Public URL は SSL 自動有効（`*.rlwy.net`）。パスワードに `@ # % & / ? +` 等がある場合は **URL エンコード**必須。
 
 ### OpenAI GPT-5.5
 
@@ -100,13 +118,13 @@ npm.cmd run verify:llm
 
 | 変数 | ローカル (`.env`) | 本番 (バックエンド) |
 |------|-------------------|---------------------|
-| `FRONTEND_URL` | `http://localhost:5173` | `https://YOUR_VERCEL_APP.vercel.app` |
-| `GOOGLE_CALLBACK_URL` | `http://localhost:5173/api/v1/auth/google/callback` | `https://YOUR_VERCEL_APP.vercel.app/api/v1/auth/google/callback` |
+| `FRONTEND_URL` | `http://localhost:5173` | `https://drone-app-gamma.vercel.app` |
+| `GOOGLE_CALLBACK_URL` | `http://localhost:5173/api/v1/auth/google/callback` | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
 | `NODE_ENV` | `development` | `production` |
-| `DATABASE_URL` | ローカル PG または Supabase | Supabase Direct |
+| `DATABASE_URL` | ローカル PG または Railway Public URL | Railway Private / `${{Postgres.DATABASE_URL}}` |
 | `JWT_SECRET` | 開発用 | **本番専用の別値** |
 
-> Vercel Deploy 後に `YOUR_VERCEL_APP` を実ドメインに差し替え。詳細: [`pre-launch-checklist.md`](pre-launch-checklist.md)
+> Vercel Deploy 後の本番 URL: `https://drone-app-gamma.vercel.app`。詳細: [`pre-launch-checklist.md`](pre-launch-checklist.md)
 
 ---
 

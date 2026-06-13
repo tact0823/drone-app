@@ -57,6 +57,7 @@ function getAuthCookieOptions(maxAge: number): CookieOptions {
     sameSite,
     maxAge,
     path: '/',
+    ...(env.isProduction && sameSite === 'none' ? { partitioned: true } : {}),
   };
 }
 
@@ -67,6 +68,7 @@ function getClearCookieOptions(): CookieOptions {
     secure: env.isProduction || sameSite === 'none',
     sameSite,
     path: '/',
+    ...(env.isProduction && sameSite === 'none' ? { partitioned: true } : {}),
   };
 }
 
@@ -147,8 +149,12 @@ export async function exchangeGoogleCode(code: string) {
     throw new Error('Missing id_token from Google');
   }
 
+  return fetchGoogleProfile(client, tokens.id_token);
+}
+
+export async function fetchGoogleProfile(client: OAuth2Client, idToken: string) {
   const ticket = await client.verifyIdToken({
-    idToken: tokens.id_token,
+    idToken,
     audience: env.googleClientId,
   });
   const payload = ticket.getPayload();
@@ -164,6 +170,21 @@ export async function exchangeGoogleCode(code: string) {
   };
 }
 
+export async function exchangeGoogleCodeWithSteps(
+  code: string,
+  onStep: (step: string) => void,
+) {
+  const client = getOAuthClient();
+  const { tokens } = await client.getToken(code);
+  onStep('token exchange success');
+  if (!tokens.id_token) {
+    throw new Error('Missing id_token from Google');
+  }
+  const profile = await fetchGoogleProfile(client, tokens.id_token);
+  onStep('profile fetched');
+  return profile;
+}
+
 export function redirectToLogin(res: Response, errorCode: string, reason?: string): void {
   const params = new URLSearchParams({ error: errorCode });
   if (reason) {
@@ -173,12 +194,16 @@ export function redirectToLogin(res: Response, errorCode: string, reason?: strin
 }
 
 export function logOAuthStep(step: string): void {
-  console.log(`[oauth] ${step}`);
+  console.log(`[auth] ${step}`);
 }
 
 export function logOAuthFailure(step: string, err: unknown): void {
   const message = err instanceof Error ? err.message : 'unknown error';
-  console.error(`[oauth] ${step} failed: ${message}`);
+  const safeMessage = message
+    .replace(/Bearer\s+\S+/gi, '[redacted]')
+    .replace(/GOCSPX-\S+/gi, '[redacted]')
+    .replace(/ya29\.[A-Za-z0-9._-]+/gi, '[redacted]');
+  console.error(`[auth] ${step} failed: ${safeMessage}`);
 }
 
 export { OAUTH_STATE_COOKIE, TOKEN_COOKIE };

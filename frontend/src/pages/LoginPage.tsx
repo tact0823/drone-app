@@ -6,6 +6,7 @@ import { startGoogleLogin } from '../lib/api';
 export function LoginPage() {
   const [searchParams] = useSearchParams();
   const errorCode = searchParams.get('error');
+  const errorReason = searchParams.get('reason');
   const { user, loading } = useAuth();
 
   if (!loading && user) {
@@ -22,6 +23,11 @@ export function LoginPage() {
 
         <div className="mt-6">
           <SafariErrorAlert errorCode={errorCode} />
+          {errorCode === 'oauth_failed' && errorReason && (
+            <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              失敗ステップ: {errorReason}
+            </p>
+          )}
 
           <button
             type="button"

@@ -9,7 +9,7 @@
 
 | 変数 | 必須 | 説明 | 設定例 |
 |------|------|------|--------|
-| `BACKEND_URL` | ✅ | バックエンド API の URL（**末尾スラッシュなし**） | `https://thermo-api.railway.app` |
+| `BACKEND_URL` | ✅ | バックエンド API の URL（**末尾スラッシュなし**） | `https://drone-app-production-54a7.up.railway.app` |
 
 Vercel Dashboard → Project → Settings → Environment Variables
 
@@ -28,8 +28,8 @@ Vercel Dashboard → Project → Settings → Environment Variables
 
 | 項目 | プレースホルダー | 差し替えタイミング |
 |------|------------------|-------------------|
-| Vercel 本番 URL | `https://YOUR_VERCEL_APP.vercel.app` | Vercel 初回 Deploy 後 |
-| バックエンド URL | `https://YOUR_BACKEND.railway.app` | Railway/Render Deploy 後 |
+| Vercel 本番 URL | `https://drone-app-gamma.vercel.app` | 確定済み |
+| バックエンド URL | `https://drone-app-production-54a7.up.railway.app` | 確定済み |
 
 ---
 

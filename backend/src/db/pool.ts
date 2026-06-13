@@ -5,17 +5,47 @@ const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
 
+function isSupabaseHost(hostname: string): boolean {
+  return (
+    hostname.endsWith('.supabase.co') ||
+    hostname.endsWith('.supabase.com') ||
+    hostname.includes('.pooler.supabase.com')
+  );
+}
+
+function isRailwayInternalHost(hostname: string): boolean {
+  return hostname.endsWith('.railway.internal');
+}
+
+function isRailwayPublicHost(hostname: string): boolean {
+  return hostname.endsWith('.rlwy.net') || hostname.endsWith('.railway.app');
+}
+
+function resolveSsl(hostname: string, sslMode: string | null): pg.ConnectionConfig['ssl'] {
+  if (sslMode === 'disable') return undefined;
+  if (isRailwayInternalHost(hostname)) return undefined;
+  if (
+    isSupabaseHost(hostname) ||
+    isRailwayPublicHost(hostname) ||
+    (sslMode !== null && sslMode !== 'disable')
+  ) {
+    return { rejectUnauthorized: false };
+  }
+  return undefined;
+}
+
 function resolvePoolConfig(connectionString: string): pg.PoolConfig {
   try {
     const parsed = new URL(connectionString);
     const sslMode = parsed.searchParams.get('sslmode');
-    const needsSsl = sslMode !== null && sslMode !== 'disable';
-    if (needsSsl) {
-      parsed.searchParams.delete('sslmode');
-    }
+
     return {
-      connectionString: parsed.toString(),
-      ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+      host: parsed.hostname,
+      port: parsed.port ? Number(parsed.port) : 5432,
+      user: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+      database: parsed.pathname.replace(/^\//, '') || 'postgres',
+      ssl: resolveSsl(parsed.hostname, sslMode),
     };
   } catch {
     return { connectionString };

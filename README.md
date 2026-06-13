@@ -293,9 +293,9 @@ docker run -p 3000:3000 --env-file .env.production thermo-inspect-api
 
 | `JWT_SECRET` | 32 文字以上のランダム文字列 |
 
-| `FRONTEND_URL` | `https://YOUR_VERCEL_APP.vercel.app` |
+| `FRONTEND_URL` | `https://drone-app-gamma.vercel.app` |
 
-| `GOOGLE_CALLBACK_URL` | `https://YOUR_VERCEL_APP.vercel.app/api/v1/auth/google/callback` |
+| `GOOGLE_CALLBACK_URL` | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
 
 | `LLM_MODEL` | `gpt-5.5` |
 

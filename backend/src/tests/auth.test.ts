@@ -97,7 +97,8 @@ describe('Auth routes', () => {
       );
       assert.equal(response.status, 302);
       const location = response.headers.get('location') ?? '';
-      assert.match(location, /\/login\?error=state_mismatch/);
+      assert.match(location, /\/login\?error=oauth_failed/);
+      assert.match(location, /reason=state_mismatch/);
     });
   });
 

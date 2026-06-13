@@ -6,7 +6,7 @@
 
 ### インフラ
 
-- [ ] Supabase プロジェクト作成 → **Direct connection** `DATABASE_URL` 取得
+- [ ] Railway で **PostgreSQL** サービス作成 → API サービスに `${{Postgres.DATABASE_URL}}` を設定
 - [ ] Railway / Render でバックエンドデプロイ → URL 取得
 - [ ] Vercel でフロントデプロイ（Root: `frontend`）→ Production URL 確定
 - [ ] バックエンド Volume 設定（`UPLOADS_DIR` / `REPORTS_DIR`）
@@ -89,8 +89,8 @@ npm.cmd run security:audit
 
 | ファイル / 設定 | 差し替え内容 |
 |-----------------|-------------|
-| バックエンド `FRONTEND_URL` | `https://YOUR_VERCEL_APP.vercel.app` |
-| バックエンド `GOOGLE_CALLBACK_URL` | `https://YOUR_VERCEL_APP.vercel.app/api/v1/auth/google/callback` |
+| バックエンド `FRONTEND_URL` | `https://drone-app-gamma.vercel.app` |
+| バックエンド `GOOGLE_CALLBACK_URL` | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
 | Google Cloud Console | 本番 Redirect URI / JS 生成元 |
-| Vercel `BACKEND_URL` | バックエンド本番 URL |
+| Vercel `BACKEND_URL` / `VITE_API_BASE_URL` | `https://drone-app-production-54a7.up.railway.app` |
 | PDF `COMPANY_*` | 実会社情報 |

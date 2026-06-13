@@ -12,9 +12,9 @@
     ↓ HTTPS
 [Vercel]  Frontend SPA + /api/* → プロキシ
     ↓
-[Railway / Render]  Express API + Puppeteer PDF
+[Railway]  Express API + Puppeteer PDF
     ↓
-[Supabase]  PostgreSQL
+[Railway]  PostgreSQL
 ```
 
 Puppeteer による PDF 生成のため、API は Vercel Functions ではなく **常時起動の Node サーバー** にデプロイしてください。
@@ -25,10 +25,10 @@ Puppeteer による PDF 生成のため、API は Vercel Functions ではなく 
 
 | サービス | 用途 |
 |----------|------|
-| Supabase | PostgreSQL |
+| Railway PostgreSQL | データベース |
 | Google Cloud Console | OAuth 2.0 |
 | OpenAI | GPT-5.5（`LLM_MODEL=gpt-5.5`） |
-| Railway / Render | バックエンド API |
+| Railway | バックエンド API + PostgreSQL |
 | Vercel | フロントエンド |
 
 テンプレート:
@@ -38,23 +38,31 @@ Puppeteer による PDF 生成のため、API は Vercel Functions ではなく 
 
 ---
 
-## Step 1: Supabase（PostgreSQL）
+## Step 1: Railway PostgreSQL
 
-### 1-1. プロジェクト作成
+### 1-1. Postgres サービス作成
 
-1. [Supabase Dashboard](https://supabase.com/dashboard) → New Project
-2. **Settings → Database → Connection string → URI**
-3. **Direct connection**（ポート `5432`）を使用
+1. [Railway Dashboard](https://railway.app) → プロジェクト → **New → Database → PostgreSQL**
+2. Postgres サービス → **Variables** または **Connect** タブで `DATABASE_URL` を確認
+
+**Private URL（Railway 内の API サービス向け）**
 
 ```
-postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require
+postgresql://postgres:[PASSWORD]@postgres.railway.internal:5432/railway
 ```
 
-> Pooler（6543）より Direct（5432）を推奨。SSL はアプリ側で `rejectUnauthorized: false` を設定済み。
+**Public URL（ローカル開発・migrate 向け）**
+
+```
+postgresql://postgres:[PASSWORD]@[HOST].rlwy.net:[PORT]/railway
+```
+
+> API サービスには **`${{Postgres.DATABASE_URL}}`**（Reference Variable）を設定するのが最も安全です。  
+> `postgres.railway.internal` はローカル PC からは接続できません。
 
 ### 1-2. マイグレーション
 
-バックエンドの `DATABASE_URL` を Supabase URI に設定後:
+ローカル `.env` に **Public URL** を設定後:
 
 ```powershell
 cd backend
@@ -73,16 +81,18 @@ npm.cmd run seed
 
 ### 2-1. 必須環境変数
 
-| 変数 | 本番値（プレースホルダー） |
+> 一括設定: [`railway-env.md`](railway-env.md)
+
+| 変数 | 本番値 |
 |------|---------------------------|
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | Supabase Direct URI |
-| `JWT_SECRET` | 32 文字以上（ローカルと別値） |
-| `FRONTEND_URL` | `https://YOUR_VERCEL_APP.vercel.app` |
-| `GOOGLE_CALLBACK_URL` | `https://YOUR_VERCEL_APP.vercel.app/api/v1/auth/google/callback` |
-| `GOOGLE_CLIENT_ID` | 本番 OAuth Client ID |
-| `GOOGLE_CLIENT_SECRET` | 本番 OAuth Secret |
-| `COOKIE_SAME_SITE` | `lax` |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `JWT_SECRET` | 32 文字以上（ローカル `.env` と同値または別値） |
+| `FRONTEND_URL` | `https://drone-app-gamma.vercel.app` |
+| `GOOGLE_CALLBACK_URL` | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
+| `GOOGLE_CLIENT_ID` | `890322517305-aou15age95rsgs4jeil7k194gmd7ee99.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | ローカル `.env` と同じ（再発行時は Railway も更新） |
+| `COOKIE_SAME_SITE` | `none`（Vercel + Railway 直結） |
 | `LLM_API_KEY` | OpenAI API Key |
 | `LLM_MODEL` | `gpt-5.5` |
 | `LLM_API_URL` | `https://api.openai.com/v1` |
@@ -139,7 +149,7 @@ npm.cmd run security:audit
 
 | 変数 | 値 |
 |------|-----|
-| `BACKEND_URL` | `https://YOUR_BACKEND.railway.app`（末尾スラッシュなし） |
+| `BACKEND_URL` | `https://drone-app-production-54a7.up.railway.app`（末尾スラッシュなし） |
 
 Production / Preview 両方に設定。
 
@@ -162,13 +172,13 @@ Vercel の Production URL が確定したら **必ず** 以下を更新:
 
 | 設定場所 | 変数 / 項目 | 値 |
 |----------|-------------|-----|
-| バックエンド | `FRONTEND_URL` | `https://<vercel-domain>` |
-| バックエンド | `GOOGLE_CALLBACK_URL` | `https://<vercel-domain>/api/v1/auth/google/callback` |
-| Google Cloud Console | 承認済みリダイレクト URI | 同上 |
-| Google Cloud Console | 承認済み JavaScript 生成元 | `https://<vercel-domain>` |
-| Vercel | `BACKEND_URL` | バックエンド URL |
+| バックエンド | `FRONTEND_URL` | `https://drone-app-gamma.vercel.app` |
+| バックエンド | `GOOGLE_CALLBACK_URL` | `https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback` |
+| Google Cloud Console | 承認済みリダイレクト URI | Railway callback URL（上記） |
+| Google Cloud Console | 承認済み JavaScript 生成元 | `https://drone-app-gamma.vercel.app` |
+| Vercel | `BACKEND_URL` / `VITE_API_BASE_URL` | `https://drone-app-production-54a7.up.railway.app` |
 
-> 本番 URL 未確定の間は `YOUR_VERCEL_APP.vercel.app` プレースホルダーを使用可。Deploy 後に差し替え。
+> 本番 URL は上記で確定済み。変更時は Google Console / Railway / Vercel を同期更新。
 
 ---
 
@@ -179,13 +189,13 @@ Vercel の Production URL が確定したら **必ず** 以下を更新:
 ### 本番 Redirect URI
 
 ```
-https://<vercel-domain>/api/v1/auth/google/callback
+https://drone-app-production-54a7.up.railway.app/api/v1/auth/google/callback
 ```
 
 ### 本番 JavaScript 生成元
 
 ```
-https://<vercel-domain>
+https://drone-app-gamma.vercel.app
 ```
 
 ### 開発用（併記推奨）
@@ -262,7 +272,7 @@ UPDATE users SET role = 'admin' WHERE email = 'your@gmail.com';
 | CORS エラー | `FRONTEND_URL` 設定 / Vercel プロキシ経由で API 呼び出し |
 | PDF 生成失敗 | Puppeteer / Chromium パス / メモリ制限 |
 | AI 分析がテンプレートのみ | `LLM_API_KEY` + `LLM_MODEL=gpt-5.5` 設定 |
-| DB 接続失敗 | Supabase Direct URI / IP 制限なし |
+| DB 接続失敗 | API サービスに `${{Postgres.DATABASE_URL}}` / Private URL を設定。ローカルは Public URL |
 
 ---
 
@@ -273,4 +283,4 @@ UPDATE users SET role = 'admin' WHERE email = 'your@gmail.com';
 | [`production-env.md`](production-env.md) | 全環境変数一覧 |
 | [`vercel-env.md`](vercel-env.md) | Vercel 専用 |
 | [`google-oauth-setup.md`](google-oauth-setup.md) | OAuth 設定 |
-| [`pre-launch-checklist.md`](pre-launch-checklist.md) | 公開前後チェック |
+| [`railway-env.md`](railway-env.md) | Railway Variables 一括設定 |
