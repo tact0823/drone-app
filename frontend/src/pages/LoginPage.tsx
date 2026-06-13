@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { SafariErrorAlert } from '../components/SafariErrorAlert';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError, loginWithEmail } from '../lib/api';
+import { isValidEmail } from '../lib/emailValidation';
 
 export function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -25,10 +26,17 @@ export function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+
+    const trimmedEmail = email.trim();
+    if (!isValidEmail(trimmedEmail)) {
+      setFormError('有効なメールアドレスを入力してください。');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      await loginWithEmail(email.trim(), password);
+      await loginWithEmail(trimmedEmail, password);
       await refresh();
       navigate('/dashboard', { replace: true });
     } catch (err) {
@@ -60,7 +68,7 @@ export function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {formError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {formError}
@@ -73,7 +81,8 @@ export function LoginPage() {
               </label>
               <input
                 id="email"
-                type="email"
+                type="text"
+                inputMode="email"
                 autoComplete="email"
                 required
                 value={email}

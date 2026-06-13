@@ -5,19 +5,29 @@ import { validateLoginInput } from '../validators/authLogin.js';
 describe('validateLoginInput', () => {
   it('accepts valid email and password', () => {
     const result = validateLoginInput({
-      email: 'Admin@Example.com',
+      email: 't.lupinlll@gmail.com',
       password: 'securepass',
     });
     assert.ok(!('code' in result));
     if ('code' in result) return;
-    assert.equal(result.email, 'admin@example.com');
+    assert.equal(result.email, 't.lupinlll@gmail.com');
     assert.equal(result.password, 'securepass');
   });
 
+  it('accepts plus-addressed email', () => {
+    const result = validateLoginInput({
+      email: 'test.user+1@gmail.com',
+      password: 'securepass',
+    });
+    assert.ok(!('code' in result));
+  });
+
   it('rejects invalid email', () => {
-    const result = validateLoginInput({ email: 'not-an-email', password: 'securepass' });
-    assert.ok('code' in result);
-    assert.equal(result.code, 'VALIDATION_ERROR');
+    for (const email of ['not-an-email', '@gmail.com', 'test@', 'test@@gmail.com']) {
+      const result = validateLoginInput({ email, password: 'securepass' });
+      assert.ok('code' in result);
+      assert.equal(result.code, 'VALIDATION_ERROR');
+    }
   });
 
   it('rejects short password', () => {

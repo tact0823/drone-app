@@ -1,4 +1,5 @@
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from './email.js';
+
 const MIN_PASSWORD_LENGTH = 8;
 
 export interface LoginInput {
@@ -26,7 +27,7 @@ export function validateLoginInput(body: unknown): LoginInput | LoginValidationE
   const password = typeof record.password === 'string' ? record.password : '';
   const details: Array<{ field: string; message: string }> = [];
 
-  if (!email || !EMAIL_PATTERN.test(email)) {
+  if (!email || !isValidEmail(email)) {
     details.push({ field: 'email', message: 'Valid email is required' });
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
