@@ -13,6 +13,8 @@ import { adminRouter } from './routes/admin.js';
 
 import { authRouter } from './routes/auth.js';
 
+import { debugRouter } from './routes/debug.js';
+
 import { healthRouter } from './routes/health.js';
 
 import { projectsRouter } from './routes/projects.js';
@@ -40,6 +42,8 @@ export function createApp() {
   app.use('/api/v1', originCheck);
 
   app.use('/api/v1', healthRouter);
+
+  app.use('/api/v1/debug', debugRouter);
 
   app.use('/api/v1/auth', authRouter);
 
