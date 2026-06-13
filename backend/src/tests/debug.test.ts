@@ -36,6 +36,8 @@ describe('Debug routes', () => {
       assert.equal(body.googleClientIdExists, true);
       assert.equal(typeof body.googleClientIdLength, 'number');
       assert.equal(typeof body.googleClientIdEndsWith, 'boolean');
+      assert.equal(body.googleClientIdSuffix, env.googleClientId.slice(-12));
+      assert.equal(String(body.googleClientIdSuffix).length, Math.min(12, env.googleClientId.length));
       assert.equal(body.googleClientSecretExists, true);
       assert.equal(typeof body.googleClientSecretLength, 'number');
       assert.equal(typeof body.googleClientSecretStartsWithGOCSPX, 'boolean');
