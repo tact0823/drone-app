@@ -14,6 +14,8 @@ import { getProjectAssessment } from '../src/services/assessmentService.js';
 import { listImagesByProject } from '../src/services/imageService.js';
 import { findProjectById } from '../src/services/projectService.js';
 import { findReportById, generateReport, listReportsByProject } from '../src/services/report/reportService.js';
+import { getActiveAiPrompt, listAiPrompts } from '../src/services/aiPromptService.js';
+import { AI_PROMPT_TARGET_TYPES } from '../src/types/aiPrompt.js';
 import { seedDemoData } from './seedDemo.js';
 
 interface StepResult {
@@ -122,6 +124,17 @@ async function main() {
     record('2. マイグレーション', false, String(error));
     printSummary();
     process.exit(1);
+  }
+
+  const aiPrompts = await listAiPrompts();
+  record('2b. AI プロンプト seed', aiPrompts.length >= 4, `${aiPrompts.length} prompts seeded`);
+  for (const targetType of AI_PROMPT_TARGET_TYPES) {
+    const active = await getActiveAiPrompt(targetType);
+    record(
+      `2c. AI プロンプト有効 (${targetType})`,
+      Boolean(active),
+      active?.name ?? 'none',
+    );
   }
 
   let seed;

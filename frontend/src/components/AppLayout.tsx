@@ -28,7 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 to="/admin"
                 className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
               >
-                管理
+                管理画面
               </Link>
             )}
             {user?.avatarUrl && (

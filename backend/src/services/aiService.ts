@@ -1,5 +1,10 @@
 import { env } from '../config/env.js';
+import { SEVERITY_GUIDELINES } from '../constants/defaultAiPrompts.js';
 import { INSPECTION_TYPES } from '../constants/inspectionTypes.js';
+import {
+  getActiveAiPromptForInspection,
+  renderPromptTemplate,
+} from '../services/aiPromptService.js';
 import type { InspectionType } from '../types/project.js';
 import type { AnomalyType, SeverityLevel } from '../types/anomaly.js';
 
@@ -63,45 +68,23 @@ function describeMarker(marker?: AnomalyAnalysisInput['marker']): string {
   return `矩形領域 面積比 約${areaPct}%（中心位置 X${cx}% Y${cy}%）`;
 }
 
-function buildAnalysisPrompt(input: AnomalyAnalysisInput): string {
+function buildPromptVariables(input: AnomalyAnalysisInput): Record<string, string> {
   const inspectionLabel =
-    INSPECTION_TYPES.find((item) => item.code === input.inspectionType)?.label ?? input.inspectionType;
+    INSPECTION_TYPES.find((item) => item.code === input.inspectionType)?.label ??
+    input.inspectionType;
   const typeOptions = allowedAnomalyTypes(input.inspectionType)
     .map((code) => `${code}=${getAnomalyLabel(input.inspectionType, code)}`)
     .join(', ');
 
-  return `## 点検条件
-- 点検種別: ${inspectionLabel}
-- 部位: ${input.partName?.trim() || '未指定'}
-- 方位: ${input.direction?.trim() || '未指定'}
-- サーマル注目領域: ${describeMarker(input.marker)}
-- オペレーターメモ: ${input.memo?.trim() || input.checkContent?.trim() || 'なし'}
-
-## 異常種別候補（この中から1つだけ選択）
-${typeOptions}
-
-## 重要度基準
-- low: 経年変化・軽微な温度偏差。機能影響は限定的で経過観察可能
-- medium: 劣化進行の疑い。数か月〜1年以内の詳細調査・計画修繕を要する
-- high: 故障・安全・発電/防水性能に直結。早期の詳細診断と修繕判断が必要
-
-## 出力要件
-赤外線診断の専門家として、報告書にそのまま掲載できる内容を JSON のみで返してください。
-comment は 280〜420 文字の日本語。次の4要素を必ず含める:
-1) 所見（温度分布・異常の位置関係）
-2) 推定原因（根拠を簡潔に）
-3) 影響・リスク（性能・安全・劣化進行）
-4) 推奨対応（調査方法・修繕方針・時期）
-
-断定しすぎず、現場で説明できる信頼性のある文体にする。数値は根拠がない場合は使用しない。
-
-JSON スキーマ:
-{
-  "anomalyType": "<候補コード>",
-  "severity": "low|medium|high",
-  "comment": "<診断所見>",
-  "checkContent": "<点検・確認項目 80文字以内>"
-}`;
+  return {
+    inspectionLabel,
+    partName: input.partName?.trim() || '未指定',
+    direction: input.direction?.trim() || '未指定',
+    markerDescription: describeMarker(input.marker),
+    memo: input.memo?.trim() || input.checkContent?.trim() || 'なし',
+    typeOptions,
+    severityGuidelines: SEVERITY_GUIDELINES,
+  };
 }
 
 function buildTemplateAnalysis(input: AnomalyAnalysisInput): AnomalyAnalysisResult {
@@ -176,15 +159,15 @@ function usesMaxCompletionTokens(model: string): boolean {
   return /^gpt-5|^o[134]/.test(model);
 }
 
-function completionLimitParams(maxTokens: number): Record<string, number> {
-  if (usesMaxCompletionTokens(env.llmModel)) {
+function completionLimitParams(model: string, maxTokens: number): Record<string, number> {
+  if (usesMaxCompletionTokens(model)) {
     return { max_completion_tokens: maxTokens };
   }
   return { max_tokens: maxTokens };
 }
 
-function temperatureParam(value: number): Record<string, number> | Record<string, never> {
-  if (usesMaxCompletionTokens(env.llmModel)) {
+function temperatureParam(model: string, value: number): Record<string, number> | Record<string, never> {
+  if (usesMaxCompletionTokens(model)) {
     return {};
   }
   return { temperature: value };
@@ -193,9 +176,23 @@ function temperatureParam(value: number): Record<string, number> | Record<string
 export async function analyzeAnomaly(input: AnomalyAnalysisInput): Promise<AnomalyAnalysisResult> {
   const fallback = buildTemplateAnalysis(input);
 
-  if (!env.llmApiKey) {
+  if (!env.llmApiKey || !env.databaseUrl) {
     return fallback;
   }
+
+  let prompt;
+  try {
+    prompt = await getActiveAiPromptForInspection(input.inspectionType);
+  } catch {
+    return fallback;
+  }
+
+  if (!prompt) {
+    return fallback;
+  }
+
+  const model = prompt.model?.trim() || env.llmModel;
+  const userContent = renderPromptTemplate(prompt.userPrompt, buildPromptVariables(input));
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
@@ -208,17 +205,13 @@ export async function analyzeAnomaly(input: AnomalyAnalysisInput): Promise<Anoma
         Authorization: `Bearer ${env.llmApiKey}`,
       },
       body: JSON.stringify({
-        model: env.llmModel,
+        model,
         messages: [
-          {
-            role: 'system',
-            content:
-              'あなたはドローン赤外線（サーマル）診断の主任調査員です。太陽光・屋根・外壁の現場報告書向けに、根拠のある専門的な日本語診断を作成します。出力は必ず有効な JSON のみ。',
-          },
-          { role: 'user', content: buildAnalysisPrompt(input) },
+          { role: 'system', content: prompt.systemPrompt },
+          { role: 'user', content: userContent },
         ],
-        ...completionLimitParams(900),
-        ...temperatureParam(input.regenerate ? 0.65 : 0.35),
+        ...completionLimitParams(model, 900),
+        ...temperatureParam(model, input.regenerate ? 0.65 : 0.35),
         response_format: { type: 'json_object' },
       }),
       signal: controller.signal,

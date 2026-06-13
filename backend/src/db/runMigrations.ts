@@ -50,6 +50,9 @@ export async function runMigrations(): Promise<void> {
         throw error;
       }
     }
+
+    const { ensureDefaultAiPrompts } = await import('../services/aiPromptService.js');
+    await ensureDefaultAiPrompts();
   } finally {
     client.release();
   }

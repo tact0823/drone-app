@@ -1,8 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminRoute } from './components/AdminRoute';
+import { AdminLayout } from './components/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
-import { AdminPage } from './pages/AdminPage';
+import { AdminAiSettingsPage } from './pages/admin/AdminAiSettingsPage';
+import { AdminCustomersPage } from './pages/admin/AdminCustomersPage';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { AdminProjectsPage } from './pages/admin/AdminProjectsPage';
+import { AdminReportsPage } from './pages/admin/AdminReportsPage';
+import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
@@ -53,10 +59,17 @@ function App() {
             path="/admin"
             element={
               <AdminRoute>
-                <AdminPage />
+                <AdminLayout />
               </AdminRoute>
             }
-          />
+          >
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="customers" element={<AdminCustomersPage />} />
+            <Route path="projects" element={<AdminProjectsPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="ai-settings" element={<AdminAiSettingsPage />} />
+          </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

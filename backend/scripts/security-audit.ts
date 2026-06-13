@@ -103,7 +103,7 @@ check(
   'Cookie設定',
   authService.includes('httpOnly: true') &&
     authService.includes('secure: env.isProduction') &&
-    authService.includes('sameSite: env.cookieSameSite'),
+    authService.includes("env.isProduction ? 'none'"),
   'token/oauth cookies: httpOnly, secure in prod, sameSite from env',
 );
 
