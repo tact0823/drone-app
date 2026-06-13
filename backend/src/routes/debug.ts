@@ -6,8 +6,19 @@ export const debugRouter = Router();
 const GOOGLE_CLIENT_ID_DOMAIN_SUFFIX = '.apps.googleusercontent.com';
 const GOOGLE_CLIENT_SECRET_PREFIX = 'GOCSPX-';
 
+export function getGoogleClientIdCore(clientId: string): string {
+  let idPart = clientId.trim();
+  if (idPart.includes('@')) {
+    idPart = idPart.split('@')[0] ?? idPart;
+  }
+  if (idPart.endsWith(GOOGLE_CLIENT_ID_DOMAIN_SUFFIX)) {
+    idPart = idPart.slice(0, -GOOGLE_CLIENT_ID_DOMAIN_SUFFIX.length);
+  }
+  return idPart;
+}
+
 function getGoogleClientIdSuffix(clientId: string): string {
-  return clientId.slice(-12);
+  return getGoogleClientIdCore(clientId).slice(-12);
 }
 
 debugRouter.get('/oauth-config', (_req, res) => {

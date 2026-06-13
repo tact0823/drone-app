@@ -8,6 +8,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createApp } from '../app.js';
 import { env } from '../config/env.js';
+import { getGoogleClientIdCore } from '../routes/debug.js';
+
+function expectedGoogleClientIdSuffix(clientId: string): string {
+  return getGoogleClientIdCore(clientId).slice(-12);
+}
 
 async function withServer(handler: (baseUrl: string) => Promise<void>): Promise<void> {
   const app = createApp();
@@ -26,6 +31,13 @@ async function withServer(handler: (baseUrl: string) => Promise<void>): Promise<
 }
 
 describe('Debug routes', () => {
+  it('extracts googleClientIdSuffix from the core id before apps.googleusercontent.com', () => {
+    assert.equal(
+      expectedGoogleClientIdSuffix('1234567890-abcdefghijklmnop.apps.googleusercontent.com'),
+      'efghijklmnop',
+    );
+  });
+
   it('GET /debug/oauth-config returns safe OAuth metadata only', async () => {
     await withServer(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/v1/debug/oauth-config`);
@@ -36,8 +48,8 @@ describe('Debug routes', () => {
       assert.equal(body.googleClientIdExists, true);
       assert.equal(typeof body.googleClientIdLength, 'number');
       assert.equal(typeof body.googleClientIdEndsWith, 'boolean');
-      assert.equal(body.googleClientIdSuffix, env.googleClientId.slice(-12));
-      assert.equal(String(body.googleClientIdSuffix).length, Math.min(12, env.googleClientId.length));
+      assert.equal(body.googleClientIdSuffix, expectedGoogleClientIdSuffix(env.googleClientId));
+      assert.equal(String(body.googleClientIdSuffix).length, Math.min(12, getGoogleClientIdCore(env.googleClientId).length));
       assert.equal(body.googleClientSecretExists, true);
       assert.equal(typeof body.googleClientSecretLength, 'number');
       assert.equal(typeof body.googleClientSecretStartsWithGOCSPX, 'boolean');
