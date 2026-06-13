@@ -44,7 +44,8 @@ if (nodeEnv === 'test') {
 type SameSiteValue = 'lax' | 'strict' | 'none';
 
 function parseSameSite(value: string | undefined): SameSiteValue {
-  const normalized = (value ?? 'lax').toLowerCase();
+  const defaultValue = nodeEnv === 'production' ? 'none' : 'lax';
+  const normalized = (value ?? defaultValue).toLowerCase();
   if (normalized === 'none') return 'none';
   if (normalized === 'strict') return 'strict';
   return 'lax';

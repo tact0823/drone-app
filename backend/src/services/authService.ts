@@ -42,21 +42,30 @@ export function createOAuthState(): string {
 }
 
 export function getOAuthStateCookieOptions(): CookieOptions {
+  return getAuthCookieOptions(10 * 60 * 1000);
+}
+
+export function getTokenCookieOptions(): CookieOptions {
+  return getAuthCookieOptions(24 * 60 * 60 * 1000);
+}
+
+function getAuthCookieOptions(maxAge: number): CookieOptions {
+  const sameSite = env.isProduction ? 'none' : env.cookieSameSite;
   return {
     httpOnly: true,
-    secure: env.isProduction,
-    sameSite: env.cookieSameSite,
-    maxAge: 10 * 60 * 1000,
+    secure: env.isProduction || sameSite === 'none',
+    sameSite,
+    maxAge,
     path: '/',
   };
 }
 
-export function getTokenCookieOptions(): CookieOptions {
+function getClearCookieOptions(): CookieOptions {
+  const sameSite = env.isProduction ? 'none' : env.cookieSameSite;
   return {
     httpOnly: true,
-    secure: env.isProduction,
-    sameSite: env.cookieSameSite,
-    maxAge: 24 * 60 * 60 * 1000,
+    secure: env.isProduction || sameSite === 'none',
+    sameSite,
     path: '/',
   };
 }
@@ -66,7 +75,7 @@ export function setOAuthStateCookie(res: Response, state: string): void {
 }
 
 export function clearOAuthStateCookie(res: Response): void {
-  res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
+  res.clearCookie(OAUTH_STATE_COOKIE, getClearCookieOptions());
 }
 
 export function setTokenCookie(res: Response, token: string): void {
@@ -74,12 +83,7 @@ export function setTokenCookie(res: Response, token: string): void {
 }
 
 export function clearTokenCookie(res: Response): void {
-  res.clearCookie(TOKEN_COOKIE, {
-    httpOnly: true,
-    secure: env.isProduction,
-    sameSite: env.cookieSameSite,
-    path: '/',
-  });
+  res.clearCookie(TOKEN_COOKIE, getClearCookieOptions());
 }
 
 export function signToken(user: Pick<User, 'id' | 'role'>): string {
@@ -160,8 +164,21 @@ export async function exchangeGoogleCode(code: string) {
   };
 }
 
-export function redirectToLogin(res: Response, errorCode: string): void {
-  res.redirect(`${env.frontendUrl}/login?error=${errorCode}`);
+export function redirectToLogin(res: Response, errorCode: string, reason?: string): void {
+  const params = new URLSearchParams({ error: errorCode });
+  if (reason) {
+    params.set('reason', reason);
+  }
+  res.redirect(`${env.frontendUrl}/login?${params.toString()}`);
+}
+
+export function logOAuthStep(step: string): void {
+  console.log(`[oauth] ${step}`);
+}
+
+export function logOAuthFailure(step: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(`[oauth] ${step} failed: ${message}`);
 }
 
 export { OAUTH_STATE_COOKIE, TOKEN_COOKIE };

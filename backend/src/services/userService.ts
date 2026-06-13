@@ -58,14 +58,33 @@ export async function findFirstUser(): Promise<User | null> {
 }
 
 export async function upsertUserFromGoogle(profile: GoogleProfile): Promise<User> {
+  const existingByGoogleId = await findUserByGoogleId(profile.googleId);
+  if (existingByGoogleId) {
+    const result = await getPool().query<UserRow>(
+      `UPDATE users
+       SET email = $2, name = $3, avatar_url = $4, updated_at = NOW()
+       WHERE google_id = $1
+       RETURNING *`,
+      [profile.googleId, profile.email, profile.name, profile.avatarUrl],
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  const existingByEmail = await findUserByEmail(profile.email);
+  if (existingByEmail) {
+    const result = await getPool().query<UserRow>(
+      `UPDATE users
+       SET google_id = $1, name = $2, avatar_url = $3, updated_at = NOW()
+       WHERE email = $4
+       RETURNING *`,
+      [profile.googleId, profile.name, profile.avatarUrl, profile.email],
+    );
+    return mapUser(result.rows[0]);
+  }
+
   const result = await getPool().query<UserRow>(
     `INSERT INTO users (google_id, email, name, avatar_url)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (google_id) DO UPDATE SET
-       email = EXCLUDED.email,
-       name = EXCLUDED.name,
-       avatar_url = EXCLUDED.avatar_url,
-       updated_at = NOW()
      RETURNING *`,
     [profile.googleId, profile.email, profile.name, profile.avatarUrl],
   );
