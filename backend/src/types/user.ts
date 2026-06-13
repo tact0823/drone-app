@@ -2,7 +2,7 @@ export type UserRole = 'operator' | 'admin';
 
 export interface User {
   id: string;
-  googleId: string;
+  googleId: string | null;
   email: string;
   name: string;
   avatarUrl: string | null;

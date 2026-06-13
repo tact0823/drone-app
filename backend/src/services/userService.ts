@@ -3,7 +3,7 @@ import { getPool } from '../db/pool.js';
 
 interface UserRow {
   id: string;
-  google_id: string;
+  google_id: string | null;
   email: string;
   name: string;
   avatar_url: string | null;

@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { validateCsrf } from '../middleware/csrf.js';
+import { loginRateLimiter } from '../middleware/loginRateLimit.js';
 import { oauthRateLimiter } from '../middleware/oauthRateLimit.js';
+import { authenticateWithEmailPassword } from '../services/adminUserService.js';
+import { validateLoginInput } from '../validators/authLogin.js';
 import { recordAuditLog } from '../services/auditService.js';
 import {
   OAUTH_STATE_COOKIE,
@@ -24,9 +27,70 @@ import {
   toPublicUser,
 } from '../services/authService.js';
 import { findUserById, upsertUserFromGoogle } from '../services/userService.js';
-import { env, isGoogleOAuthConfigured } from '../config/env.js';
+import { env, isEmailLoginConfigured, isGoogleOAuthConfigured } from '../config/env.js';
 
 export const authRouter = Router();
+
+authRouter.post('/login', loginRateLimiter, async (req, res) => {
+  const validated = validateLoginInput(req.body);
+  if ('code' in validated) {
+    res.status(400).json({
+      error: {
+        code: validated.code,
+        message: validated.message,
+        details: validated.details,
+      },
+    });
+    return;
+  }
+
+  const user = await authenticateWithEmailPassword(validated.email, validated.password);
+  if (!user) {
+    try {
+      await recordAuditLog(req, {
+        action: 'auth.login_failed',
+        resourceType: 'user',
+        details: { email: validated.email },
+      });
+    } catch (err) {
+      logOAuthFailure('audit_log', err);
+    }
+    res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Invalid email or password' },
+    });
+    return;
+  }
+
+  let token;
+  try {
+    token = signToken(user);
+  } catch (err) {
+    logOAuthFailure('jwt_create', err);
+    res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to create session' },
+    });
+    return;
+  }
+
+  setTokenCookie(res, token);
+
+  try {
+    await recordAuditLog(req, {
+      userId: user.id,
+      action: 'auth.login',
+      resourceType: 'user',
+      resourceId: user.id,
+      details: { method: 'email' },
+    });
+  } catch (err) {
+    logOAuthFailure('audit_log', err);
+  }
+
+  res.json({
+    user: toPublicUser(user),
+    csrfToken: createCsrfToken(user.id),
+  });
+});
 
 authRouter.get('/google', oauthRateLimiter, (_req, res) => {
   if (!isGoogleOAuthConfigured()) {
@@ -135,8 +199,9 @@ authRouter.post('/logout', authenticate, validateCsrf, async (req, res) => {
 
 authRouter.get('/config', (_req, res) => {
   res.json({
+    emailLoginEnabled: isEmailLoginConfigured(),
     googleOAuthEnabled: isGoogleOAuthConfigured(),
-    callbackUrl: env.googleCallbackUrl,
+    callbackUrl: env.googleCallbackUrl || null,
   });
 });
 

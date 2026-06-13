@@ -17,6 +17,8 @@ for (const key of [
   'GOOGLE_CALLBACK_URL',
   'DATABASE_URL',
   'JWT_SECRET',
+  'ADMIN_EMAIL',
+  'ADMIN_PASSWORD',
 ] as const) {
   if (process.env[key] === '') {
     delete process.env[key];
@@ -68,11 +70,7 @@ const LOCAL_GOOGLE_CALLBACK_PATTERN =
   /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/api\/v1\/auth\/google\/callback$/;
 
 function resolveGoogleCallbackUrl(): string {
-  const explicit = trimEnv(process.env.GOOGLE_CALLBACK_URL);
-  if (!explicit) {
-    throw new Error('GOOGLE_CALLBACK_URL is required');
-  }
-  return explicit;
+  return trimEnv(process.env.GOOGLE_CALLBACK_URL);
 }
 
 export function validateGoogleCallbackUrl(callbackUrl: string): void {
@@ -89,9 +87,32 @@ export function validateGoogleCallbackUrl(callbackUrl: string): void {
   );
 }
 
+export function assertAuthEnv(): void {
+  if (!env.jwtSecret || env.jwtSecret.length < 16) {
+    console.error('JWT_SECRET is required (minimum 16 characters, 32+ recommended)');
+    process.exit(1);
+  }
+
+  if (!env.databaseUrl) {
+    console.error('DATABASE_URL is required');
+    process.exit(1);
+  }
+
+  if (!env.adminEmail || !env.adminPassword) {
+    console.error('ADMIN_EMAIL and ADMIN_PASSWORD are required');
+    process.exit(1);
+  }
+
+  if (env.adminPassword.length < 8) {
+    console.error('ADMIN_PASSWORD must be at least 8 characters');
+    process.exit(1);
+  }
+}
+
+/** Optional — only when Google OAuth routes are used */
 export function assertGoogleOAuthEnv(): void {
   if (!env.googleCallbackUrl) {
-    console.error('GOOGLE_CALLBACK_URL is required');
+    console.error('GOOGLE_CALLBACK_URL is required for Google OAuth');
     process.exit(1);
   }
 
@@ -104,7 +125,7 @@ export function assertGoogleOAuthEnv(): void {
   }
 
   if (!env.googleClientId || !env.googleClientSecret) {
-    console.error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required');
+    console.error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required for Google OAuth');
     process.exit(1);
   }
 }
@@ -119,6 +140,8 @@ export const env = {
   databaseUrl: trimEnv(process.env.DATABASE_URL),
   jwtSecret: trimEnv(process.env.JWT_SECRET),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
+  adminEmail: trimEnv(process.env.ADMIN_EMAIL).toLowerCase(),
+  adminPassword: trimEnv(process.env.ADMIN_PASSWORD),
   googleClientId: trimEnv(process.env.GOOGLE_CLIENT_ID),
   googleClientSecret: trimEnv(process.env.GOOGLE_CLIENT_SECRET),
   googleCallbackUrl,
@@ -139,4 +162,8 @@ export const env = {
 
 export function isGoogleOAuthConfigured(): boolean {
   return Boolean(env.googleClientId && env.googleClientSecret && env.googleCallbackUrl);
+}
+
+export function isEmailLoginConfigured(): boolean {
+  return Boolean(env.adminEmail && env.adminPassword);
 }

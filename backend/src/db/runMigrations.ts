@@ -53,6 +53,9 @@ export async function runMigrations(): Promise<void> {
 
     const { ensureDefaultAiPrompts } = await import('../services/aiPromptService.js');
     await ensureDefaultAiPrompts();
+
+    const { ensureAdminUser } = await import('../services/adminUserService.js');
+    await ensureAdminUser();
   } finally {
     client.release();
   }

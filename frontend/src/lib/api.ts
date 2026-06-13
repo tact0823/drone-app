@@ -93,6 +93,13 @@ export function getMe(): Promise<MeResponse> {
   return fetchApi<MeResponse>('/api/v1/auth/me');
 }
 
+export function loginWithEmail(email: string, password: string): Promise<MeResponse> {
+  return fetchApi<MeResponse>('/api/v1/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
 export function logout(csrfToken?: string): Promise<void> {
   return fetchApi<void>('/api/v1/auth/logout', {
     method: 'POST',
